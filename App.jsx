@@ -5,40 +5,59 @@ import React, { useState, useEffect, useMemo } from "react";
 // =====================================================================
 
 // [código, dimensões, sacolas por folha 66x96cm]
+// Modelos: cada um tem código, dimensões, quantas sacolas saem por folha
+// (embutido no número do código: SP 3007 = 3 sacolas, SP 4003 = 4, SM 1008 = 1),
+// e se usa folha 64x88 (aproveitamento) em vez da 66x96 (padrão).
 const MODELOS_BASE = [
-  ["SP 9001", "09x13x04", 9], ["SP 8000", "10x14x05", 8],
-  ["SP 7002", "12x12x05", 7], ["SP 5000", "11x19x05", 5],
-  ["SP 4003", "13x18x06", 4], ["SP 4004", "18x17x08", 4],
-  ["SP 4005", "24x16x6,5", 4], ["SP 3006", "18x25x07", 3],
-  ["SP 3007", "22x24x8,5", 3], ["SAT 03", "24,5x22x07", 3],
-  ["SP 2000", "18x25x14", 2], ["SM 2009", "33x23x11", 2],
-  ["SM 2009 PLUS", "35,5x23x11", 2], ["SAT 01", "20x31x11", 2],
-  ["SAT 02", "22x37x12,5", 1], ["SM 1008", "25x32x12", 1],
-  ["SM 1008 PLUS", "26x36x14", 1], ["SM 1008 B", "25x32x12", 1],
-  ["SM 1008 B PLUS", "27,5x36x13,2", 1], ["SM 1008 B PLUS 2", "27,5x36x13,3", 1],
-  ["SAT 04", "30,5x26,5x22", 1], ["SM 1010", "35x30x11", 1],
-  ["SG 1011", "29x40x14", 1], ["VINHO 01", "15x40x11", 1],
-  ["VINHO 02", "21x40x11", 1], ["SG 15013", "41,5x36x12", 1],
-  ["SAT 05", "32x42x17", 0.5], ["SAT 06", "45x40,5x13", 0.5],
+  // [code, dim, sacolasPorFolha, usaFolha64]
+  ["SP 9001",         "09x13x04",     9,   false],
+  ["SP 8000",         "10x14x05",     8,   false],
+  ["SP 7002",         "12x12x05",     7,   false],
+  ["SP 5000",         "11x19x05",     5,   false],
+  ["SP 4003",         "13x18x06",     4,   false],
+  ["SP 4004",         "18x17x08",     4,   false],
+  ["SP 4005",         "24x16x6,5",    4,   false],
+  ["SP 3006",         "18x25x07",     3,   false],
+  ["SP 3007",         "22x24x8,5",    3,   false],
+  ["SAT 03",          "24,5x22x07",   3,   false],
+  ["SP 2000",         "18x25x14",     2,   false],
+  ["SM 2009",         "33x23x11",     2,   false],
+  ["SM 2009 PLUS",    "35,5x23x11",   2,   false],
+  ["SAT 01",          "20x31x11",     2,   false],
+  ["SAT 02",          "22x37x12,5",   1,   true],
+  ["SM 1008",         "25x32x12",     1,   true],
+  ["SM 1008 PLUS",    "26x36x14",     1,   true],
+  ["SM 1008 B",       "25x32x12",     1,   true],
+  ["SM 1008 B PLUS",  "27,5x36x13,2", 1,   true],
+  ["SM 1008 B PLUS 2","27,5x36x13,3", 1,   true],
+  ["SAT 04",          "30,5x26,5x22", 1,   true],
+  ["SM 1010",         "35x30x11",     1,   true],
+  ["SG 1011",         "29x40x14",     1,   false],
+  ["VINHO 01",        "15x40x11",     1,   true],
+  ["VINHO 02",        "21x40x11",     1,   true],
+  ["SG 15013",        "41,5x36x12",   1,   false],
+  ["SAT 05",          "32x42x17",     0.5, true],
+  ["SAT 06",          "45x40,5x13",   0.5, true],
 ];
 
 // Logo da empresa (pétalas brancas extraídas, fundo transparente)
 const LOGO_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAQu0lEQVR42u1dd7BcVRn/fbv7XkIkoSQQupTQQxecoDSVLooUnaGELuCAiDCRIqJGRIokI+AMoKDADCggKE0wFCEUAUUEZAAFpASGhBDSeHlbfv6x30e+nNzdvfve7tvyzjdz52655dxzfucrv/Odc4XkZwF8BEAAEFGGg1hbjwXJMbE+hqeQXCUHYATJTNQAw1IDjMgBoIiUSIqIRAAMj54vIkJqz48yjCUCIAIgSgRAlAiAKBEAUSIAokQARIkAiBIBECUCIEoEQJQIgCgRAFEiAKJEAESJAIjSfZKLVVCfkBTtOKVuyKCKAKiv8TMiUgJQjCZg+DV+VnMnsyTPJXmhgaLTH2ycU20d30jNeA6SOd1vRfJxluV2u2eHmjGQHN9VJkBEis1ofBEpkDwYwHUARqsJWGS3jSagxWh22zSS4/VzpoGNfyqAW7XxlwDIAih1i23raBNgKpjkKaqar2qEanZq/zy9boFkkWQ+uE+uEzuNmYCOBoDr+WNJziHZrw20lf6eHWTjn6ONnSdZcp9Jclo3AKDTTUBWY/FvAhirajkH4IcDjdGd2p8C4AIABVX5YQeZG01Ae2iAEST/oz3U1HSR5Nb1mgLX8492at96PgMNcGbUAK2PywlgEoCNUJ7saM5ZBsBZA+z5ewO4Vj39TBUv/81IBLU46tP9Qdr45pVn9ftBJNcXkWKtiEAZvgLJzQDc7K4vVersfTu9CVotSzLntmwEwPIxf0Eb9kvaUBnXcEUAIwCcWOs5VR0KyVEAfg9gZadFljtcfyeA9xoBgKDBMyJCESmKSMFtTaOeO5IIcpz8xrox6K3WeIeTnCoii6tMf8+olrgYwFbq9NWql7mDBYD2ahGRAtzYAsnVAWwOYCKAdXR7A8D5+szRCXTO2mHOWQulqPv9KjmDjkPYPXDwKond5+8DqTPt7bngtx6Su5D8CcmHSH6YcN9bGulwdhMV/JkqvbCkWuGrAO4J7blWAkn2ALg88Csq1p3uX3T+RiGNxtLeXrTjSU4CcAiA/QFsmlD2kjNFFzXD3+hYE+Acvs2rNJx58Hs4D9+bgaz+9i1Vt4U66uPptKZK/ZWSfl8bwKEAjgCwQwCsovNlzM/oBfCgiDyjZq/YDHXaMhOgzk9moGqM5EuBug+lpP9t6RvEMYgrknzLHVdLjBPYqRrHQDLj/yO5LcmrSM4NrpWvcl8zN7vUy2fUYwLawgeoZxjXFX41kvOChmEF0uaowHew/fFVfIhKPsWbJEdWqrOg4SeRvC3wLfIpwGbl+UOjG78tiCDXA/cluYGGPUz5oFbpYwCsmPKW2wffi1oJJ9dhV0t67AwR6XNElO/1ohHFZiRvBPCY8hQ5VfHUz5kafoagPNx8hvkq3cYDWOWdAuAFkpeSXF0rr5Y2sP/GOdJHahy7ydJ2+qThtgewnXPm0tSVALitAitpdn6K+giHG9gcS5lGyxkDebaIvK5haqmZvXHITYBTwdc5tfc2yW+EDlSV0G3PFOrbVO0LTu316P4HKUM/u06J5P9IrmAaLHiWDUk+mGB+6hF7lgcaGfa1nQlw8q72jj4AawO4meQ1JEda/l2DtNdK6lH7CGLXlKGfDyl/LSIfmwYLxg/+BmAPjSY4gAjL7jEPwHHaSE1POmkHAIhWVkkr73gAM0iubSZhMIyx8xdW0ZCsqE7cJnXE/hkACwFcYw3jGv8EAH9Wk1TUZ6lXm9LF/MeKyBtNV/0tBoA5NW+6Rsho5eUBfA7AoyQ3bgAIAKAn6JGr65YGAGaTLxWRd80X0MY/CcDVjrQZaDmNg/iRiNyu4Bqa1PMW+QAWj0+sEMKZ/ZxFckJg+22/c40Q0P+3UEkYOHtdTHG+2eRXSY5ST99s/iFVcgbqkX7d32x2v9lt0Q4+gGmANwDMTqA5LWxaE8ADJDd1msCOe8+xZ7XCpEUAFgS9upCijKaajxaRxdrDiyTXRzlD2Oy2DKLn9wB4BMBk7RjFoZxx1BIAqAOVEZGFAF4KnDO40KwIYD0Ad5Ac7SocAOagdlqWVeTcAACz9XxWOc/s+Wki8piCzxrn58pBlAZRh6b2nwVwoIj0W90MZVu00gm0e89M0AAeBAUAPlHDhoPnK3hYxVu2XvyKEU0asy8G8LiCqZBg882Lv1BErjC1r5HJRAAHNsjmPw9gHxH50A1xY7gAwBp8Ro2y5LTC9lMnqahq086VGj1ZADyU4PBd7BzEvAvfjLA5U0TOUcAU3Ln7a1lLA1T9eX2mZwB8UUTe90RSK2jZlo4FkByp/HqtQR1zDD/v6OQJ6oQlOWKWJPoxyXUD59P2x5NcEJz3SNIAjHP+pgXlSSv+nPtIrhzeYyipeHMCWz0aaJV6RQr2rOBYvV4XDVymvy8JsoL7gvz9bIVIZEOSx5I8Wd+fhArHW1mnDgAAnq282l2rZWMx7QIAa4TtUg7JWqV/x2hdTQu/o8LxM5S6zVQYucskVU6F38PwMy2FnHeh6InV7jHsABCA4P6U3H6J5LskR/uGJXkEydtJvkLyaZJnk+yt9WwW26fJvnUguMVpnUqmxz/Hw36eQqvT79oNAFapX0g5Nm//T/aquYrqlkZWnAJmJZJPBcAsJGiw15QqRqvsfdsDIABBGi1gDt+9rgdbanXWNVRTGDVXeSuS/AXJD4LyLdBRwWOUu2i5yq8GACE5TkTmtPKtYRoGFUlui/JYuo0NSJXQ7n0AE0RkgS/7UDxHcL/VAWwDYJQyjv8WkVnhs6GNxL01rHkaQHum3ySlFvhZwJFXC6s2bYQ37cf36zwnW+2/dk21b6kJcLNglqkgV2k9JGemDAs3TAMAZ7ur5vANAjxZt7X9bKumzwvQSl3P/VQCMEdEFoXqUCssYxSsiORJHgrgSb1G3jF/RtUKgNcAvJkmZ07VNZO0lJqeXgC9OjZRl+i1O3fVsEZrAO0RPSSfUzW+RLe3ST6rIdS5mtK1aoJ2sJStLQKGMB8s1HBkrR7skD5W77umN0/6+WBNLz+gnTz1jjUBzpZPTuHRzyZ5F8njrHGM4NH9egkkT5+bm19L9Rvjdqae+339bvzAJe66u0YAND6s+6Nz6EouXk7KjZ9L8lckd0i43s66XMvpOoU7lePnHnSm3vcJ99vpDqB5kpsExFQ4TVsiAOqLAITkOJ15U0kTJLFmRZI3ukyg3EAct0D924ycD0mO0UklixynMJvkSo5ezkQN0DiKdwclR2px/aUACPNJftv7BjaHvs77bxREE2NJHuXMSUln5UoQlYwjuYcOFE11EYdEAKS/kdngfZ0Dl2YOnm+w31ivrKeM7iFXVTDZNceoE1oguTjwDXp0yvmdAcPXp1pDIgAGDoKvuR6ediJmmDCZHaAWutYld4oO/XqwrUtyffURvCzR/Ze7yUEcciLIgeAA1+vSjqdbI5xWbyO4OYgrkLyc5EH6fTzJf2qyyPF67BPufn0u3JzitINEAAweBJNIvlPnmHpRnckVBquG3cOPIrme8xNC+nkRySOSnqPTncSWUcEOBJ9WxyvJ+atmElKHgAmaIOdDvIB8Gq8rjZrzeb0jjSboNj6JXo4AGDhHkCP5U+cPVMrtM+5gvjGHjShrOD6gWmBflz94jk4G7dP7z1N2c7otEBE1wCBDRGcS/pow0JMPCKNzh8oRIzklhVl6kuRunagJ2iIhJBxOJfkVpYUXJUydutgTTM0CpZkJks8r+PocEEMzNVPHKyIAGsEauu/r67y7Kbpm7+ZD5KSK8wleqtDz5ytI9w/P61QAtDwjSAuT1a0kIvmEY3pRnpZVHKIyjUd5/eHRAFZDeSj5AwAvishbvhI78c1hQ5IRlFLdSqVoQcO0kUnIHcJyrqIaqTeIGnq6xQnMDfFN7X17Np8eJNcAsDWAbXW/FoDxAD6F8kzcd1CeA/gnEbnbI7hZ4NQ5gGcBmIryNK6FJB8DcKWI3Knlartcv4E+cLOp4KTlUbfVV7E8SvKjOmbY3KSzgjLNanzdr+YYyJC2foDkdkMVkXQTEziK5JE6SaJUYQZNPpje5fMHjKX7rieVmgBWo45fDSZ/+GHrPn2RVFMjk44GgLvJGJKnugr1gzD1rK5hDfDIQNjAeogqbdTdgomjVt5+V+ZpnQiCoUgIMZZtHMmXg2HV/gEuqWLTwp5utslyn9cmeWuFMQvTBpc2E5AdrQG0N+2uy6X2JWiAvGvYWuMAdv61zTQBut+P5EUk99TvW5A8i+S9OvdwvpZnoZZ/r07yCVrlA2xJ8seaGVwtIygfbIUgb3AzBVZvI1+p4sYoTgjKdX2CiRivOQTr6LZKJ5FCQ50Qkgm4f9Eo4GSSNyjturCGBlhE8m6dOlbVgx+E42dm62WncUz1X63HdnT831Im0CaA6HIr4X9rAdgA5bX71gWwgv7Vh/IEkOd18UQ7fhKA3VFeXXQegLtE5Ml6n8HH8qoBSgD+BWBLLJ2DaCt5fV1EblHTY5NTPrlUJzGCLWUCXU+rW3Xrq1UerqAlTg3tsK3bnzRly3P/QdmmBckqFo7O0mnhmU7PDGq3wSAJ5tf516X1uEkc3wsWd8wH/MASl8RRaZUPCQifQ9Wpe84GeDQvYHEQohoYLuhkAqgtAVAritDP04PkkEqrgtviTgaaHUjeTPJ3JDf20YN69sUgRN1G/zsjyEcs6Tav01+23REAqND4lfgDSzVfTHIN93B7atIn3Zs+1nDXvcQ1sjX0ba4MNwb3zTebiYwAWL7xr0ixVoA13nR3/gZujKHfcQhT3X3ud6Gn9fCFuuCDhXtXB/cpadSSjRqgeYUzFX1Zjcb38wbu0fUGwwWn8sGyMjPcfZ4NzIft9w7KcZQuSuV9jx072Rdo25dH26qc+pKn07H82gAmNgzbA+AmlN8NmNdh3H0A7Imla/2aSPB9vt1W97ZS50Q7XsvzW5Rf8XYVgCV6jQPdNTta2mnhIlusYQKAKxMa0BZisDV68wCmiMhhWHa937Ow/GIQtkDEO+631wMAmKzoYnsb958lIic5IKwagKajQ4K2MAFmV918gXxAD3u5l+T2PtbXzxMrjC3Y+Se5+50a/Gf780InLyGBtWsmhuTapED2+pVjlOHrx9J3/FjFLwHwFwDTReQBz+S5xtpPtZp/C6gtAP0xgLvdbWfocdlaWtGWgQleAdsVkmsTNBY1EfOX+nOvqtd3ALwA4D4A94rIK74HuoYwNb5LBX8hB+BWEXnLXjohIi+R/AeAHbHsGj99lcrashW9uxkA1sOUvDkD5ezbOSi/UOoNXdvfq95leqB7WWMvyhy+78XG5/cDuMAtKGXLvV8PYCcs++7B1zCcpN2ZLT9ho9L/ul/HET9VKVxnA1fS1UFK7pxtusHOdxwP4CZw5lxalqQBiO63qpCx85xyBOG6hBbnn+9AM5vkmHbuEF1PBA0ketD9bgE1XNQ8gi2TerQblRytizqT5IPd3vvbmggapIx0Tp/Z+cki8mLSK1nUsxcRWQBgsv7833bjR4aFE9goXxJL3+OTBXCciNxmIWYF59OInpkkDw6cx+gEdpgJ2MsN6x4Zkjlp/Ihh1OZdaQL6ATwFYDcRuaFaz0+K7ztloeeoASo/x4hQK0QZRhpARJaYOu8mqrbZ0nUqrxvp2giAKBEAUSIAokQARIkAiBIBECUCIEoEQJQIgCgRAFEiAKJEAESJAIgSARAlAiBKBECUCIAoEQBRIgCi1BbJYDhNgogSCv8P1OFGdnhSXYEAAAAASUVORK5CYII=";
 
-// [tipo, nome, preço folha 66x96cm]
+// Papéis: cada um tem preço da folha 66x96 (padrão) e folha 64x88 (aproveitamento)
 const PAPEIS_BASE = [
-  ["offset_120", "Offset 120g", 0.96],
-  ["offset_150", "Offset 150g", 1.01],
-  ["offset_180", "Offset 180g", 1.25],
-  ["offset_240", "Offset 240g", 1.65],
-  ["kraft_110", "Kraft 110g", 0.49],
-  ["kraft_140", "Kraft 140g", 0.62],
-  ["kraft_180", "Kraft 180g", 0.80],
-  ["kraft_200", "Kraft 200g", 0.89],
-  ["eco_120", "Ecomillenium 120g", 0.72],
-  ["eco_150", "Ecomillenium 150g", 0.86],
-  ["eco_180", "Ecomillenium 180g", 1.03],
-  ["eco_240", "Ecomillenium 240g", 1.39],
+  // [id, nome, folha66, folha64]
+  ["offset_120", "Offset 120g",       0.96, 0.67],
+  ["offset_150", "Offset 150g",       1.01, 0.92],
+  ["offset_180", "Offset 180g",       1.25, 1.11],
+  ["offset_240", "Offset 240g",       1.65, 1.48],
+  ["kraft_110",  "Kraft 110g",        0.49, 0.44],
+  ["kraft_140",  "Kraft 140g",        0.62, 0.55],
+  ["kraft_180",  "Kraft 180g",        0.80, 0.71],
+  ["kraft_200",  "Kraft 200g",        0.89, 0.79],
+  ["eco_120",    "Ecomillenium 120g", 0.72, 0.64],
+  ["eco_150",    "Ecomillenium 150g", 0.86, 0.79],
+  ["eco_180",    "Ecomillenium 180g", 1.03, 0.95],
+  ["eco_240",    "Ecomillenium 240g", 1.39, 1.28],
 ];
 
 // Alças: cada uma tem `custo` (R$ por sacola, com markup já aplicado se for o caso).
@@ -271,8 +290,8 @@ const PLASTIC_CATEGORIAS_BASE = [
 
 // Configuração padrão
 const CONFIG_PADRAO = {
-  modelos: MODELOS_BASE.map(([code, dim, sf]) => ({ code, dim, sacolasPorFolha: sf })),
-  papeis: PAPEIS_BASE.map(([id, nome, preco]) => ({ id, nome, preco })),
+  modelos: MODELOS_BASE.map(([code, dim, sf, u64]) => ({ code, dim, sacolasPorFolha: sf, usaFolha64: u64 })),
+  papeis: PAPEIS_BASE.map(([id, nome, f66, f64]) => ({ id, nome, folha66: f66, folha64: f64, preco: f66 })),
   alcas: ALCAS_BASE.map(([id, nome, custo, precoMilheiro]) => ({ id, nome, custo, precoMilheiro })),
   laminacao: { ...LAMINACAO_BASE },
   hotChapaFaixas: [...HOT_CHAPA_FAIXAS_BASE],
@@ -301,7 +320,7 @@ const CONFIG_PADRAO = {
 // PERSISTÊNCIA
 // =====================================================================
 
-const STORAGE_KEY = "calc_sacolas_papel_v9";
+const STORAGE_KEY = "calc_sacolas_papel_v12";
 
 async function loadConfig() {
   try {
@@ -425,9 +444,15 @@ function calcOrcamento(input, config) {
     return { erro: !faixaKey ? "Quantidade mínima é 300 unidades" : "Configuração incompleta" };
   }
 
-  // 1) Papel + impressão (por sacola)
-  const custoPapelImpressao =
-    (papel.preco + config.impressaoPorFolha) / modelo.sacolasPorFolha;
+  // 1) Papel + impressão (por sacola) — lógica simples
+  //    O modelo define quantas sacolas saem por folha (embutido no código:
+  //    SP 3007 = 3, SP 4003 = 4, SM 1008 = 1, SAT 05 = 0.5).
+  //    Alguns modelos usam folha 64x88 (aproveitamento) em vez da 66x96 (padrão).
+  const precoFolha = modelo.usaFolha64 ? (papel.folha64 ?? papel.preco) : (papel.folha66 ?? papel.preco);
+  const sacolasPorFolha = modelo.sacolasPorFolha || 1;
+  const consumoPapelSacola = precoFolha / sacolasPorFolha;
+  const impressaoSacola = config.impressaoPorFolha / sacolasPorFolha;
+  const custoPapelImpressao = consumoPapelSacola + impressaoSacola;
 
   // 2) Cola
   const custoCola = config.colaPorSacola;
@@ -463,12 +488,17 @@ function calcOrcamento(input, config) {
     hotFilmePorSacola = filmeInfo.custo;
   }
 
-  const custoUnitarioTotal =
-    custoPapelImpressao + custoCola + custoChapa +
-    custoAlca + custoIlhos + custoLaminacao + custoVerniz +
-    hotChapaPorSacola + hotFilmePorSacola;
+  // ── Fórmula oficial da Flor de Maria ────────────────────────────────
+  // Papel + Impressão + Cola + Chapa (offset) → multiplicam × markup
+  // Alça, laminação, verniz e hot stamping → já vêm com margem, somam direto
+  // ────────────────────────────────────────────────────────────────────
+  const custoInsumosProducao = custoPapelImpressao + custoCola + custoChapa;
+  const precoInsumosProducao = custoInsumosProducao * markup;
+  const somaExtras = custoAlca + custoIlhos + custoLaminacao + custoVerniz +
+                     hotChapaPorSacola + hotFilmePorSacola;
 
-  const precoVendaUnit = custoUnitarioTotal * markup;
+  const custoUnitarioTotal = custoInsumosProducao + somaExtras;
+  const precoVendaUnit = precoInsumosProducao + somaExtras;
   const precoVendaUnitComDesconto = precoVendaUnit * (1 - desconto);
   const totalCusto = custoUnitarioTotal * qty;
   const totalVenda = precoVendaUnitComDesconto * qty;
@@ -487,7 +517,12 @@ function calcOrcamento(input, config) {
       hotChapa: hotChapaPorSacola,
       hotFilme: hotFilmePorSacola,
     },
-    extras: { chapaInfo, filmeInfo, laminacaoIndisponivel, numChapas, chapasExtras },
+    calculo: {
+      custoInsumosProducao,
+      precoInsumosProducao,
+      somaExtras,
+    },
+    extras: { chapaInfo, filmeInfo, laminacaoIndisponivel, numChapas, chapasExtras, consumoPapelSacola, impressaoSacola },
     custoUnitarioTotal,
     precoVendaUnit,
     precoVendaUnitComDesconto,
@@ -604,22 +639,22 @@ function App() {
 function Calculator({ config }) {
   const [modelCode, setModelCode]   = useState(config.modelos[4].code); // SP 4003 default
   const [paperId, setPaperId]       = useState(config.papeis[2].id);    // OFFSET 180 default
-  const [qty, setQty]               = useState(1000);
+  const [qty, setQty]               = useState("1000");
   const [alcaId, setAlcaId]         = useState(config.alcas[0].id);
   const [coresLogomarca, setCoresLogomarca] = useState(1);
   const [usaLaminacao, setUsaLaminacao] = useState(false);
   const [usaVerniz, setUsaVerniz]   = useState(false);
   const [usaIlhos, setUsaIlhos]     = useState(false);
   const [usaHotStamp, setUsaHotStamp] = useState(false);
-  const [hotLarg, setHotLarg]       = useState(5);
-  const [hotAlt, setHotAlt]         = useState(3);
+  const [hotLarg, setHotLarg]       = useState("5");
+  const [hotAlt, setHotAlt]         = useState("3");
   const [markup, setMarkup]         = useState(config.markupPadrao);
   const [desconto, setDesconto]     = useState(0);
 
   const orcamento = useMemo(() => calcOrcamento({
-    modelCode, paperId, qty, alcaId, coresLogomarca,
+    modelCode, paperId, qty: Number(qty) || 0, alcaId, coresLogomarca,
     usaLaminacao, usaVerniz, usaIlhos, usaHotStamp,
-    hotLarg, hotAlt, markup, desconto,
+    hotLarg: Number(hotLarg) || 0, hotAlt: Number(hotAlt) || 0, markup, desconto,
   }, config), [modelCode, paperId, qty, alcaId, coresLogomarca, usaLaminacao, usaVerniz,
               usaIlhos, usaHotStamp, hotLarg, hotAlt, markup, desconto, config]);
 
@@ -649,7 +684,7 @@ function Calculator({ config }) {
 
         <Field label="Quantidade">
           <input type="number" min="0" step="50" style={styles.input}
-                 value={qty} onChange={(e) => setQty(Number(e.target.value) || 0)} />
+                 value={qty} onChange={(e) => setQty(e.target.value)} />
           <small style={styles.hint}>
             Faixa atual: {orcamento.faixaKey ? FAIXAS.find(f => f.key === orcamento.faixaKey)?.label : "abaixo do mínimo"}
           </small>
@@ -694,11 +729,11 @@ function Calculator({ config }) {
             <div style={styles.row2}>
               <Field label="Largura da arte (cm)" small>
                 <input type="number" min="0" step="0.1" style={styles.input}
-                       value={hotLarg} onChange={(e) => setHotLarg(Number(e.target.value) || 0)} />
+                       value={hotLarg} onChange={(e) => setHotLarg(e.target.value)} />
               </Field>
               <Field label="Altura da arte (cm)" small>
                 <input type="number" min="0" step="0.1" style={styles.input}
-                       value={hotAlt} onChange={(e) => setHotAlt(Number(e.target.value) || 0)} />
+                       value={hotAlt} onChange={(e) => setHotAlt(e.target.value)} />
               </Field>
             </div>
           </div>
@@ -732,25 +767,31 @@ function Calculator({ config }) {
 
 function Resultado({ o, config }) {
   const c = o.componentes;
-  const linhas = [
-    ["Papel + impressão (por folha)", c.papelImpressao,
-     `(${fmt(o.papel.preco)} folha + ${fmt(config.impressaoPorFolha)}) ÷ ${o.modelo.sacolasPorFolha} sacolas/folha`],
+
+  // Insumos de produção (multiplicam por markup): papel+imp, cola, chapa
+  const insumosProducao = [
+    ["Papel + impressão", c.papelImpressao,
+     `(folha ${fmt(o.extras.consumoPapelSacola * (o.modelo.sacolasPorFolha || 1))} + imp ${fmt(config.impressaoPorFolha)}) ÷ ${o.modelo.sacolasPorFolha || 1} sacola${(o.modelo.sacolasPorFolha || 1) === 1 ? "" : "s"}/folha${o.modelo.usaFolha64 ? " (folha 64)" : ""}`],
     ["Cola hotmelt", c.cola, "fixo por sacola"],
     ["Chapas offset", c.chapaAmortizada,
      `${o.extras.numChapas} chapa${o.extras.numChapas > 1 ? "s" : ""} (1 inclusa${o.extras.chapasExtras > 0 ? ` + ${o.extras.chapasExtras} extra${o.extras.chapasExtras > 1 ? "s" : ""}` : ""}) × ${fmtSimple(config.custoChapaUnitario)} ÷ ${o.qty} un.`],
+  ];
+
+  // Extras (já com margem, somam direto): alça, ilhós, laminação, verniz, hot stamping
+  const extras = [
     ["Alça (" + o.alca.nome + ")", c.alca,
      o.alca.precoMilheiro != null && o.alca.precoMilheiro > 0
        ? `${ALCAS_POR_SACOLA} × ${fmtSimple(o.alca.precoMilheiro / 1000)} (milheiro a ${fmtSimple(o.alca.precoMilheiro)})`
        : "ilhós embutido"],
   ];
-  if (c.ilhos > 0) linhas.push(["Ilhós separado", c.ilhos, `${config.ilhosPorSacola} × ${fmt(config.ilhosPorUnidade)}`]);
-  if (c.laminacao > 0) linhas.push(["Laminação", c.laminacao, "fosca/brilhosa"]);
-  if (c.verniz > 0) linhas.push(["Verniz", c.verniz, ""]);
-  if (c.hotChapa > 0) linhas.push([
+  if (c.ilhos > 0) extras.push(["Ilhós separado", c.ilhos, `${config.ilhosPorSacola} × ${fmt(config.ilhosPorUnidade)}`]);
+  if (c.laminacao > 0) extras.push(["Laminação", c.laminacao, "fosca/brilhosa"]);
+  if (c.verniz > 0) extras.push(["Verniz", c.verniz, ""]);
+  if (c.hotChapa > 0) extras.push([
     "Hot stamping — chapa", c.hotChapa,
     `chapa ${o.extras.chapaInfo.area.toFixed(1)} cm² (${fmtSimple(o.extras.chapaInfo.custoBase)} + frete ${fmtSimple(o.extras.chapaInfo.frete)}) ÷ ${o.qty} un.`,
   ]);
-  if (c.hotFilme > 0) linhas.push([
+  if (c.hotFilme > 0) extras.push([
     "Hot stamping — filme", c.hotFilme,
     `${(o.extras.filmeInfo?.areaFilmeSacola || 0).toFixed(0)} cm² de filme/sacola (bobina ${(config.hotFilme.largura_mm/10).toFixed(0)}cm × 2 batidas) + ${(config.hotFilme.margem_sobra * 100).toFixed(0)}% sobra`,
   ]);
@@ -762,10 +803,39 @@ function Resultado({ o, config }) {
         {o.modelo.code} · {o.modelo.dim} · {o.papel.nome} · {o.qty.toLocaleString("pt-BR")} un.
       </p>
 
-      <h3 style={styles.sectionTitle}>Composição do custo unitário</h3>
+      <h3 style={styles.sectionTitle}>Insumos de produção (× {o.markup.toFixed(2)})</h3>
       <table style={styles.table}>
         <tbody>
-          {linhas.map(([lbl, val, det], i) => (
+          {insumosProducao.map(([lbl, val, det], i) => (
+            <tr key={i}>
+              <td style={styles.tdLabel}>
+                {lbl}
+                {det && <div style={styles.tdHint}>{det}</div>}
+              </td>
+              <td style={styles.tdVal}>{fmt(val)}</td>
+            </tr>
+          ))}
+          <tr>
+            <td style={styles.tdLabel}>
+              <strong>Subtotal insumos</strong>
+              <div style={styles.tdHint}>papel + impressão + cola + chapa</div>
+            </td>
+            <td style={styles.tdVal}><strong>{fmt(o.calculo.custoInsumosProducao)}</strong></td>
+          </tr>
+          <tr style={styles.trTotal}>
+            <td style={styles.tdLabel}>
+              <strong>× markup ({o.markup.toFixed(2)}×)</strong>
+              <div style={styles.tdHint}>com margem embutida</div>
+            </td>
+            <td style={styles.tdVal}><strong>{fmt(o.calculo.precoInsumosProducao)}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style={styles.sectionTitle}>Extras (já com margem — somam direto)</h3>
+      <table style={styles.table}>
+        <tbody>
+          {extras.map(([lbl, val, det], i) => (
             <tr key={i}>
               <td style={styles.tdLabel}>
                 {lbl}
@@ -775,27 +845,29 @@ function Resultado({ o, config }) {
             </tr>
           ))}
           <tr style={styles.trTotal}>
-            <td style={styles.tdLabel}><strong>Custo unitário total</strong></td>
-            <td style={styles.tdVal}><strong>{fmt(o.custoUnitarioTotal)}</strong></td>
+            <td style={styles.tdLabel}><strong>Subtotal extras</strong></td>
+            <td style={styles.tdVal}><strong>{fmt(o.calculo.somaExtras)}</strong></td>
           </tr>
         </tbody>
       </table>
 
-      <h3 style={styles.sectionTitle}>Preço de venda</h3>
-      <table style={styles.table}>
-        <tbody>
-          <tr>
-            <td style={styles.tdLabel}>Custo × markup ({o.markup.toFixed(2)}×)</td>
-            <td style={styles.tdVal}>{fmt(o.precoVendaUnit)}</td>
-          </tr>
-          {o.desconto > 0 && (
-            <tr>
-              <td style={styles.tdLabel}>Após desconto de {(o.desconto * 100).toFixed(0)}%</td>
-              <td style={styles.tdVal}>{fmt(o.precoVendaUnitComDesconto)}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {o.desconto > 0 && (
+        <>
+          <h3 style={styles.sectionTitle}>Desconto</h3>
+          <table style={styles.table}>
+            <tbody>
+              <tr>
+                <td style={styles.tdLabel}>Preço antes do desconto</td>
+                <td style={styles.tdVal}>{fmt(o.precoVendaUnit)}</td>
+              </tr>
+              <tr>
+                <td style={styles.tdLabel}>Desconto de {(o.desconto * 100).toFixed(0)}%</td>
+                <td style={styles.tdVal}>-{fmt(o.precoVendaUnit * o.desconto)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      )}
 
       <div style={styles.priceBox}>
         <div style={styles.priceLabel}>Preço final por sacola</div>
@@ -809,7 +881,7 @@ function Resultado({ o, config }) {
       </div>
 
       <p style={styles.disclaimer}>
-        ⓘ O markup atual de {o.markup.toFixed(2)}× cobre custo dos insumos + despesas operacionais + lucro + impostos do Simples Nacional. Ajuste com cuidado em pedidos grandes.
+        ⓘ Só papel + impressão + cola + chapa multiplicam pelo markup. Alça, laminação, verniz e hot stamping já vêm com margem embutida no preço.
       </p>
     </>
   );
@@ -871,7 +943,7 @@ function PlasticCalculator({ config }) {
   const [categoriaId, setCategoriaId] = useState(config.plasticCategorias[0].id);
   const cat = config.plasticCategorias.find((c) => c.id === categoriaId);
   const [modelCode, setModelCode] = useState(cat.modelos[0]?.code || "");
-  const [qty, setQty]         = useState(cat.faixas[0].min);
+  const [qty, setQty]         = useState(String(cat.faixas[0].min));
   const [cores, setCores]     = useState(1);
   const [lados, setLados]     = useState(1);
   const [desconto, setDesconto] = useState(0);
@@ -882,13 +954,13 @@ function PlasticCalculator({ config }) {
     setCategoriaId(id);
     const novaCat = config.plasticCategorias.find((c) => c.id === id);
     setModelCode(novaCat.modelos[0]?.code || "");
-    setQty(novaCat.faixas[0].min);
+    setQty(String(novaCat.faixas[0].min));
     setVerCores(false);
   };
 
   const orcamento = useMemo(() =>
     calcOrcamentoPlastico({
-      categoriaId, modelCode, qty, cores, lados, desconto,
+      categoriaId, modelCode, qty: Number(qty) || 0, cores, lados, desconto,
     }, config),
   [categoriaId, modelCode, qty, cores, lados, desconto, config]);
 
@@ -918,7 +990,7 @@ function PlasticCalculator({ config }) {
 
         <Field label="Quantidade">
           <input type="number" min="0" step="100" style={styles.input}
-                 value={qty} onChange={(e) => setQty(Number(e.target.value) || 0)} />
+                 value={qty} onChange={(e) => setQty(e.target.value)} />
           <small style={styles.hint}>
             Faixas: {cat.faixas.map((f) => f.label).join(" · ")}
           </small>
@@ -1089,17 +1161,21 @@ function QuotationHub({ config, onUpdate }) {
 
 function AlcaQuotation({ config, onUpdate }) {
   const [alcaName, setAlcaName]         = useState("");
-  const [pesoTotal, setPesoTotal]       = useState(0);
-  const [qtdMilheiros, setQtdMilheiros] = useState(1);
-  const [precoMilheiro, setPrecoMilheiro] = useState(0);
-  const [tarifaFrete, setTarifaFrete]   = useState(config.tarifaFrete);
+  const [pesoTotal, setPesoTotal]       = useState("");
+  const [qtdMilheiros, setQtdMilheiros] = useState("1");
+  const [precoMilheiro, setPrecoMilheiro] = useState("");
+  const [tarifaFrete, setTarifaFrete]   = useState(String(config.tarifaFrete));
   const [showSaved, setShowSaved]       = useState(false);
+  const pesoTotalNum = Number(pesoTotal) || 0;
+  const qtdMilheirosNum = Number(qtdMilheiros) || 1;
+  const precoMilheiroNum = Number(precoMilheiro) || 0;
+  const tarifaFreteNum = Number(tarifaFrete) || 0;
 
   // Cálculos
-  const freteTotal       = (Number(pesoTotal) || 0) * (Number(tarifaFrete) || 0);
-  const milheiros        = Math.max(1, Number(qtdMilheiros) || 1);
+  const freteTotal       = pesoTotalNum * tarifaFreteNum;
+  const milheiros        = Math.max(1, qtdMilheirosNum);
   const fretePorMilheiro = freteTotal / milheiros;
-  const milheiroComFrete = (Number(precoMilheiro) || 0) + fretePorMilheiro;
+  const milheiroComFrete = precoMilheiroNum + fretePorMilheiro;
   const custoPorAlca     = milheiroComFrete / 1000;
   const custoPorSacola   = custoPorAlca * ALCAS_POR_SACOLA;
   const valido           = milheiroComFrete > 0;
@@ -1149,26 +1225,26 @@ function AlcaQuotation({ config, onUpdate }) {
             <Field label="Peso total (kg)" small>
               <input type="number" min="0" step="0.01" style={styles.input}
                      value={pesoTotal}
-                     onChange={(e) => setPesoTotal(Number(e.target.value) || 0)} />
+                     onChange={(e) => setPesoTotal(e.target.value)} />
             </Field>
             <Field label="Quantidade de milheiros" small>
               <input type="number" min="1" step="1" style={styles.input}
                      value={qtdMilheiros}
-                     onChange={(e) => setQtdMilheiros(Number(e.target.value) || 1)} />
+                     onChange={(e) => setQtdMilheiros(e.target.value)} />
             </Field>
           </div>
 
           <Field label="Preço por milheiro (R$)">
             <input type="number" min="0" step="0.01" style={styles.input}
                    value={precoMilheiro}
-                   onChange={(e) => setPrecoMilheiro(Number(e.target.value) || 0)} />
+                   onChange={(e) => setPrecoMilheiro(e.target.value)} />
             <small style={styles.hint}>Valor cobrado pelo fornecedor por mil unidades de alça</small>
           </Field>
 
           <Field label="Tarifa do frete (R$/kg)">
             <input type="number" min="0" step="0.01" style={styles.input}
                    value={tarifaFrete}
-                   onChange={(e) => setTarifaFrete(Number(e.target.value) || 0)} />
+                   onChange={(e) => setTarifaFrete(e.target.value)} />
             <small style={styles.hint}>Padrão: R$ 1,40/kg (configurável)</small>
           </Field>
 
@@ -1186,7 +1262,7 @@ function AlcaQuotation({ config, onUpdate }) {
               <tr>
                 <td style={styles.tdLabel}>
                   Frete total
-                  <div style={styles.tdHint}>{(Number(pesoTotal) || 0).toLocaleString("pt-BR")} kg × {fmtSimple(tarifaFrete)}</div>
+                  <div style={styles.tdHint}>{pesoTotalNum.toLocaleString("pt-BR")} kg × {fmtSimple(tarifaFreteNum)}</div>
                 </td>
                 <td style={styles.tdVal}>{fmtSimple(freteTotal)}</td>
               </tr>
@@ -1200,7 +1276,7 @@ function AlcaQuotation({ config, onUpdate }) {
               <tr>
                 <td style={styles.tdLabel}>
                   Milheiro com frete
-                  <div style={styles.tdHint}>{fmtSimple(precoMilheiro)} + {fmtSimple(fretePorMilheiro)}</div>
+                  <div style={styles.tdHint}>{fmtSimple(precoMilheiroNum)} + {fmtSimple(fretePorMilheiro)}</div>
                 </td>
                 <td style={styles.tdVal}>{fmtSimple(milheiroComFrete)}</td>
               </tr>
@@ -1244,21 +1320,24 @@ function AlcaQuotation({ config, onUpdate }) {
 // ---------- Cotação avulsa de hot stamping ----------
 
 function HotStampingQuotation({ config }) {
-  const [larg, setLarg] = useState(5);
-  const [alt, setAlt]   = useState(3);
-  const [qty, setQty]   = useState(1000);
+  const [larg, setLarg] = useState("5");
+  const [alt, setAlt]   = useState("3");
+  const [qty, setQty]   = useState("1000");
   const [ladosFilme, setLadosFilme] = useState(2);
+  const largNum = Number(larg) || 0;
+  const altNum  = Number(alt)  || 0;
+  const qtyNum  = Number(qty)  || 0;
 
-  const chapaInfo = useMemo(() => calcChapa(larg, alt, config), [larg, alt, config]);
+  const chapaInfo = useMemo(() => calcChapa(largNum, altNum, config), [largNum, altNum, config]);
   const filmeInfo = useMemo(() =>
-    calcFilmePorSacola(larg, alt, config, ladosFilme),
-  [larg, alt, ladosFilme, config]);
+    calcFilmePorSacola(largNum, altNum, config, ladosFilme),
+  [largNum, altNum, ladosFilme, config]);
 
-  const qtyValido = qty > 0;
-  const chapaPorSacola = qtyValido ? chapaInfo.custo / qty : 0;
+  const qtyValido = qtyNum > 0;
+  const chapaPorSacola = qtyValido ? chapaInfo.custo / qtyNum : 0;
   const filmePorSacola = filmeInfo.custo;
   const totalPorSacola = chapaPorSacola + filmePorSacola;
-  const totalPedido = totalPorSacola * qty;
+  const totalPedido = totalPorSacola * qtyNum;
 
   return (
     <>
@@ -1278,19 +1357,19 @@ function HotStampingQuotation({ config }) {
             <Field label="Largura da arte (cm)" small>
               <input type="number" min="0" step="0.1" style={styles.input}
                      value={larg}
-                     onChange={(e) => setLarg(Number(e.target.value) || 0)} />
+                     onChange={(e) => setLarg(e.target.value)} />
             </Field>
             <Field label="Altura da arte (cm)" small>
               <input type="number" min="0" step="0.1" style={styles.input}
                      value={alt}
-                     onChange={(e) => setAlt(Number(e.target.value) || 0)} />
+                     onChange={(e) => setAlt(e.target.value)} />
             </Field>
           </div>
 
           <Field label="Tiragem (quantidade de sacolas)">
             <input type="number" min="1" step="100" style={styles.input}
                    value={qty}
-                   onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))} />
+                   onChange={(e) => setQty(e.target.value)} />
             <small style={styles.hint}>Usada apenas para diluir o custo da chapa por sacola</small>
           </Field>
 
@@ -1320,7 +1399,7 @@ function HotStampingQuotation({ config }) {
                 <td style={styles.tdLabel}>
                   Área da chapa
                   <div style={styles.tdHint}>
-                    ({larg} + 2) × ({alt} + 2) — 1 cm de borda em cada lado
+                    ({largNum} + 2) × ({altNum} + 2) — 1 cm de borda em cada lado
                   </div>
                 </td>
                 <td style={styles.tdVal}>{chapaInfo.area.toFixed(1)} cm²</td>
@@ -1352,7 +1431,7 @@ function HotStampingQuotation({ config }) {
                 <tr>
                   <td style={styles.tdLabel}>
                     Diluída pela tiragem
-                    <div style={styles.tdHint}>{fmtSimple(chapaInfo.custo)} ÷ {qty.toLocaleString("pt-BR")} un.</div>
+                    <div style={styles.tdHint}>{fmtSimple(chapaInfo.custo)} ÷ {qtyNum.toLocaleString("pt-BR")} un.</div>
                   </td>
                   <td style={styles.tdVal}>{fmt(chapaPorSacola)} <span style={styles.tdHint}>/ sacola</span></td>
                 </tr>
@@ -1367,7 +1446,7 @@ function HotStampingQuotation({ config }) {
                 <td style={styles.tdLabel}>
                   Filme por batida
                   <div style={styles.tdHint}>
-                    largura bobina ({(config.hotFilme.largura_mm/10).toFixed(0)}cm) × altura arte ({alt}cm)
+                    largura bobina ({(config.hotFilme.largura_mm/10).toFixed(0)}cm) × altura arte ({altNum}cm)
                   </div>
                 </td>
                 <td style={styles.tdVal}>{(filmeInfo.areaFilmeBatida || 0).toFixed(0)} cm²</td>
@@ -1412,7 +1491,7 @@ function HotStampingQuotation({ config }) {
               <div style={styles.priceLabel}>Custo total do hot stamping</div>
               <div style={styles.priceValue}>{fmtSimple(totalPorSacola)}<span style={{ fontSize: 16, opacity: 0.7 }}> / sacola</span></div>
               <div style={styles.priceTotal}>
-                No pedido de {qty.toLocaleString("pt-BR")} un.: <strong>{fmtSimple(totalPedido)}</strong>
+                No pedido de {qtyNum.toLocaleString("pt-BR")} un.: <strong>{fmtSimple(totalPedido)}</strong>
               </div>
               <div style={styles.priceProfit}>
                 Chapa {fmtSimple(chapaInfo.custo)} + Filme {fmtSimple(filmePorSacola * qty)}
@@ -1429,25 +1508,33 @@ function HotStampingQuotation({ config }) {
 
 function PaperQuotation({ config, onUpdate }) {
   const [paperName, setPaperName]       = useState("");
-  const [pesoTotal, setPesoTotal]       = useState(0);
-  const [qtdPacotes, setQtdPacotes]     = useState(1);
-  const [precoPacote, setPrecoPacote]   = useState(0);
-  const [folhasPacote, setFolhasPacote] = useState(125);
-  const [tarifaFrete, setTarifaFrete]   = useState(config.tarifaFrete);
+  const [pesoTotal, setPesoTotal]       = useState("");
+  const [qtdPacotes, setQtdPacotes]     = useState("1");
+  const [precoPacote, setPrecoPacote]   = useState("");
+  const [folhasPacote, setFolhasPacote] = useState("125");
+  const [tarifaFrete, setTarifaFrete]   = useState(String(config.tarifaFrete));
   const [showSaved, setShowSaved]       = useState(false);
+  const pesoTotalNum = Number(pesoTotal) || 0;
+  const qtdPacotesNum = Number(qtdPacotes) || 1;
+  const precoPacoteNum = Number(precoPacote) || 0;
+  const folhasPacoteNum = Number(folhasPacote) || 1;
+  const tarifaFreteNum = Number(tarifaFrete) || 0;
 
   // Cálculos
-  const freteTotal       = (Number(pesoTotal) || 0) * (Number(tarifaFrete) || 0);
-  const pacotes          = Math.max(1, Number(qtdPacotes) || 1);
+  const freteTotal       = pesoTotalNum * tarifaFreteNum;
+  const pacotes          = Math.max(1, qtdPacotesNum);
   const fretePorPacote   = freteTotal / pacotes;
-  const pacoteComFrete   = (Number(precoPacote) || 0) + fretePorPacote;
-  const folhasUnit       = Math.max(1, Number(folhasPacote) || 1);
+  const pacoteComFrete   = precoPacoteNum + fretePorPacote;
+  const folhasUnit       = Math.max(1, folhasPacoteNum);
   const custoPorFolha    = pacoteComFrete / folhasUnit;
   const valido           = custoPorFolha > 0;
 
   // Custo por sacola para cada modelo (para vendedor visualizar)
+  // Papel novo sendo cotado tem apenas 1 preço (custoPorFolha) — o vendedor pode
+  // depois cadastrar folha 64/66 separado em Configurações se quiser.
   const custosPorModelo = config.modelos.map((m) => {
-    const custoPapelImp = (custoPorFolha + config.impressaoPorFolha) / m.sacolasPorFolha;
+    const sf = m.sacolasPorFolha || 1;
+    const custoPapelImp = (custoPorFolha + (config.impressaoPorFolha || 0.15)) / sf;
     return { ...m, custoPapelImp };
   }).sort((a, b) => a.custoPapelImp - b.custoPapelImp);
 
@@ -1495,12 +1582,12 @@ function PaperQuotation({ config, onUpdate }) {
             <Field label="Peso total (kg)" small>
               <input type="number" min="0" step="0.01" style={styles.input}
                      value={pesoTotal}
-                     onChange={(e) => setPesoTotal(Number(e.target.value) || 0)} />
+                     onChange={(e) => setPesoTotal(e.target.value)} />
             </Field>
             <Field label="Quantidade de pacotes" small>
               <input type="number" min="1" step="1" style={styles.input}
                      value={qtdPacotes}
-                     onChange={(e) => setQtdPacotes(Number(e.target.value) || 1)} />
+                     onChange={(e) => setQtdPacotes(e.target.value)} />
             </Field>
           </div>
 
@@ -1508,19 +1595,19 @@ function PaperQuotation({ config, onUpdate }) {
             <Field label="Preço por pacote (R$)" small>
               <input type="number" min="0" step="0.01" style={styles.input}
                      value={precoPacote}
-                     onChange={(e) => setPrecoPacote(Number(e.target.value) || 0)} />
+                     onChange={(e) => setPrecoPacote(e.target.value)} />
             </Field>
             <Field label="Folhas por pacote" small>
               <input type="number" min="1" step="1" style={styles.input}
                      value={folhasPacote}
-                     onChange={(e) => setFolhasPacote(Number(e.target.value) || 1)} />
+                     onChange={(e) => setFolhasPacote(e.target.value)} />
             </Field>
           </div>
 
           <Field label="Tarifa do frete (R$/kg)">
             <input type="number" min="0" step="0.01" style={styles.input}
                    value={tarifaFrete}
-                   onChange={(e) => setTarifaFrete(Number(e.target.value) || 0)} />
+                   onChange={(e) => setTarifaFrete(e.target.value)} />
             <small style={styles.hint}>Padrão: R$ 1,40/kg (configurável)</small>
           </Field>
 
@@ -1538,7 +1625,7 @@ function PaperQuotation({ config, onUpdate }) {
               <tr>
                 <td style={styles.tdLabel}>
                   Frete total
-                  <div style={styles.tdHint}>{(Number(pesoTotal) || 0).toLocaleString("pt-BR")} kg × {fmtSimple(tarifaFrete)}</div>
+                  <div style={styles.tdHint}>{pesoTotalNum.toLocaleString("pt-BR")} kg × {fmtSimple(tarifaFreteNum)}</div>
                 </td>
                 <td style={styles.tdVal}>{fmtSimple(freteTotal)}</td>
               </tr>
@@ -1552,7 +1639,7 @@ function PaperQuotation({ config, onUpdate }) {
               <tr>
                 <td style={styles.tdLabel}>
                   Pacote com frete
-                  <div style={styles.tdHint}>{fmtSimple(precoPacote)} + {fmtSimple(fretePorPacote)}</div>
+                  <div style={styles.tdHint}>{fmtSimple(precoPacoteNum)} + {fmtSimple(fretePorPacote)}</div>
                 </td>
                 <td style={styles.tdVal}>{fmtSimple(pacoteComFrete)}</td>
               </tr>
@@ -1620,7 +1707,7 @@ function Settings({ config, onUpdate, onReset }) {
     setDraft({ ...draft, papeis: novosPapeis });
   };
   const addPapel = () => {
-    const novo = { id: `papel_${Date.now()}`, nome: "Novo papel", preco: 0 };
+    const novo = { id: `papel_${Date.now()}`, nome: "Novo papel", folha66: 0, folha64: 0, preco: 0 };
     setDraft({ ...draft, papeis: [...draft.papeis, novo] });
   };
   const removePapel = (idx) => {
@@ -1645,7 +1732,7 @@ function Settings({ config, onUpdate, onReset }) {
     setDraft({ ...draft, modelos: novos });
   };
   const addModelo = () => {
-    setDraft({ ...draft, modelos: [...draft.modelos, { code: "Novo modelo", dim: "", sacolasPorFolha: 1 }] });
+    setDraft({ ...draft, modelos: [...draft.modelos, { code: "Novo modelo", dim: "", sacolasPorFolha: 1, usaFolha64: false }] });
   };
   const removeModelo = (idx) => {
     setDraft({ ...draft, modelos: draft.modelos.filter((_, i) => i !== idx) });
@@ -1697,19 +1784,33 @@ function Settings({ config, onUpdate, onReset }) {
         <summary style={styles.detSummary}>Papéis ({draft.papeis.length})</summary>
         <div style={styles.detBody}>
           <p style={styles.helpText}>
-            Para adicionar um papel especial novo, clique em <strong>Adicionar papel</strong> e informe o preço da folha 66×96cm.
-            Todos os modelos terão o custo recalculado automaticamente.
+            Cada papel tem 2 preços: <strong>folha 66×96cm</strong> (padrão) e <strong>folha 64×88cm</strong> (aproveitamento). O sistema usa automaticamente uma ou outra conforme o modelo (definido em "Modelos de sacola").
           </p>
           <table style={styles.editTable}>
-            <thead><tr><th>Nome</th><th>Folha 66×96cm (R$)</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Folha 66 (R$)</th>
+                <th>Folha 64 (R$)</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
               {draft.papeis.map((p, i) => (
                 <tr key={p.id}>
                   <td><input style={styles.input} value={p.nome}
                              onChange={(e) => updatePapel(i, "nome", e.target.value)} /></td>
                   <td><input type="number" step="0.01" style={styles.input}
-                             value={p.preco}
-                             onChange={(e) => updatePapel(i, "preco", Number(e.target.value))} /></td>
+                             value={p.folha66 ?? p.preco ?? 0}
+                             onChange={(e) => {
+                               const v = Number(e.target.value);
+                               const novos = [...draft.papeis];
+                               novos[i] = { ...novos[i], folha66: v, preco: v };
+                               setDraft({ ...draft, papeis: novos });
+                             }} /></td>
+                  <td><input type="number" step="0.01" style={styles.input}
+                             value={p.folha64 ?? 0}
+                             onChange={(e) => updatePapel(i, "folha64", Number(e.target.value))} /></td>
                   <td><button style={styles.btnDel} onClick={() => removePapel(i)}>×</button></td>
                 </tr>
               ))}
@@ -1778,10 +1879,19 @@ function Settings({ config, onUpdate, onReset }) {
         <summary style={styles.detSummary}>Modelos de sacola ({draft.modelos.length})</summary>
         <div style={styles.detBody}>
           <p style={styles.helpText}>
-            <strong>Sacolas por folha</strong>: quantas sacolas saem de uma folha 66×96cm. Exemplo: SP 4003 = 4 sacolas/folha. SAT 05 grande = 0,5 (precisa de 2 folhas).
+            <strong>Sacolas por folha</strong>: quantas sacolas saem de uma folha (embutido no código: SP 3007 = 3, SM 1008 = 1, SAT 05 = 0.5 = precisa de 2 folhas por sacola).<br />
+            <strong>Folha 64</strong>: marque se o modelo usa a folha 64×88 (aproveitamento) em vez da padrão 66×96.
           </p>
           <table style={styles.editTable}>
-            <thead><tr><th>Código</th><th>Dimensões</th><th>Sacolas/folha</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Dimensões</th>
+                <th>Sacolas/folha</th>
+                <th>Folha 64</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
               {draft.modelos.map((m, i) => (
                 <tr key={i}>
@@ -1790,8 +1900,13 @@ function Settings({ config, onUpdate, onReset }) {
                   <td><input style={styles.input} value={m.dim}
                              onChange={(e) => updateModelo(i, "dim", e.target.value)} /></td>
                   <td><input type="number" step="0.5" style={styles.input}
-                             value={m.sacolasPorFolha}
-                             onChange={(e) => updateModelo(i, "sacolasPorFolha", Number(e.target.value))} /></td>
+                             value={m.sacolasPorFolha ?? 1}
+                             onChange={(e) => updateModelo(i, "sacolasPorFolha", Number(e.target.value) || 1)} /></td>
+                  <td style={{ textAlign: "center" }}>
+                    <input type="checkbox"
+                           checked={!!m.usaFolha64}
+                           onChange={(e) => updateModelo(i, "usaFolha64", e.target.checked)} />
+                  </td>
                   <td><button style={styles.btnDel} onClick={() => removeModelo(i)}>×</button></td>
                 </tr>
               ))}
